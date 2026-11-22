@@ -56,7 +56,7 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #c5cfdb;border-ra
 <button class="btn" id="csv">📊 Excel list, no photos (to edit on PC)</button>
 <button class="btn g" id="bak">💾 Backup for the app only (not readable)</button>
 <button class="btn g" id="res">📂 Restore from a backup</button>
-<input type="file" id="rf" accept=".json" hidden>
+<input type="file" id="rf" hidden>
 <button class="btn g" id="close">Close</button>
 </div></div>
 
@@ -132,7 +132,7 @@ $("#bak").onclick=async()=>{const n="move-inventory-backup-"+new Date().toISOStr
  try{const f=new File([data],n,{type:"application/json"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"Move inventory backup"});return}}catch(e){if(e.name=="AbortError")return}
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/octet-stream"}));a.download=n;a.click()};
 $("#res").onclick=()=>$("#rf").click();
-$("#rf").onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!confirm("Add "+d.items.length+" items from this backup?"))return;cats=[...new Set([...cats,...d.cats])];saveCats();for(const i of d.items)await run("readwrite",s=>s.put(i));load();$("#menu").classList.remove("open")}catch(x){alert("That file didn't look like a backup.")}e.target.value=""};
+$("#rf").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse((await f.text()).replace(/^\ufeff/,"")),its=d.items||[];if(!its.length)throw 0;if(!confirm("Add "+its.length+" items from this backup?")){e.target.value="";return}cats=[...new Set([...cats,...(d.cats||[]),...its.map(i=>i.cat)])];saveCats();for(const i of its)await run("readwrite",t=>t.put(i));await load();$("#menu").classList.remove("open")}catch(x){alert("Couldn't read \""+f.name+"\". It needs to be a file made by the Backup button (not the PDF or Excel list).")}e.target.value=""};
 const fnm=()=>"move-inventory"+(filter!="All"?"-"+filter.replace(/\W+/g,"-"):"");
 function give(blob,name){const f=new File([blob],name,{type:blob.type});
  if(matchMedia("(pointer:coarse)").matches&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:name}).catch(()=>{});return}
