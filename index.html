@@ -127,7 +127,9 @@ $("#save").onclick=async()=>{
 };
 $("#del").onclick=async()=>{if(confirm("Delete this item?")){await run("readwrite",s=>s.delete(edit.id));$("#form").classList.remove("open");load()}};
 $("#menuBtn").onclick=()=>$("#menu").classList.add("open");$("#close").onclick=()=>$("#menu").classList.remove("open");
-$("#bak").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify({cats,items})],{type:"application/json"}));a.download="move-inventory-backup.json";a.click()};
+$("#bak").onclick=async()=>{const n="move-inventory-backup-"+new Date().toISOString().slice(0,10)+".json",data=JSON.stringify({cats,items});
+ try{const f=new File([data],n,{type:"application/json"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"Move inventory backup"});return}}catch(e){if(e.name=="AbortError")return}
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/octet-stream"}));a.download=n;a.click()};
 $("#res").onclick=()=>$("#rf").click();
 $("#rf").onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!confirm("Add "+d.items.length+" items from this backup?"))return;cats=[...new Set([...cats,...d.cats])];saveCats();for(const i of d.items)await run("readwrite",s=>s.put(i));load();$("#menu").classList.remove("open")}catch(x){alert("That file didn't look like a backup.")}e.target.value=""};
 $("#pdf").onclick=()=>{
