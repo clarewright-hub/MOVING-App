@@ -27,6 +27,7 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #c5cfdb;border-ra
 .btn{padding:12px;border-radius:10px;border:0;background:#1f3a5f;color:#fff;width:100%;margin-top:8px}
 .btn.g{background:#e6ebf1;color:#1b2430}.btn.r{background:#fde4e1;color:#9b2c20}
 #ph{width:100%;height:170px;border-radius:12px;background:#e6ebf1 center/cover;display:grid;place-items:center;color:#8a97a8}
+.ck{font-size:15px;color:#1b2430;margin:2px 0;display:flex;align-items:center}.ck input{width:auto;margin:0 10px 0 0}
 .empty{text-align:center;color:#8a97a8;padding:40px 20px;grid-column:1/-1}
 </style></head><body>
 <header><div class="top"><h1>📦 Move Inventory</h1><button class="ic" id="menuBtn">⋮</button></div>
@@ -52,6 +53,7 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #c5cfdb;border-ra
 
 <div class="sheet" id="menu"><div class="pane">
 <h2 style="margin:0">Menu</h2>
+<label style="margin-top:10px">Include these categories in the PDF / Excel:</label><div id="xc"></div><button class="btn g" id="xall" style="margin:6px 0 10px">Tick all / none</button>
 <button class="btn" id="pdf">📄 PDF with photos (to email / print)</button>
 <button class="btn" id="csv">📊 Excel list, no photos (to edit on PC)</button>
 <button class="btn g" id="bak">💾 Backup for the app only (not readable)</button>
@@ -127,24 +129,28 @@ $("#save").onclick=async()=>{
  await run("readwrite",s=>s.put(it));$("#form").classList.remove("open");load();
 };
 $("#del").onclick=async()=>{if(confirm("Delete this item?")){await run("readwrite",s=>s.delete(edit.id));$("#form").classList.remove("open");load()}};
-$("#menuBtn").onclick=()=>$("#menu").classList.add("open");$("#close").onclick=()=>$("#menu").classList.remove("open");
+$("#menuBtn").onclick=()=>{$("#xc").innerHTML=cats.map(c=>`<label class="ck"><input type="checkbox" value="${esc(c)}" ${filter=="All"||filter==c?"checked":""}>${esc(c)} (${items.filter(i=>i.cat==c).length})</label>`).join("");$("#menu").classList.add("open")};$("#close").onclick=()=>$("#menu").classList.remove("open");
 $("#bak").onclick=async()=>{const n="move-inventory-backup-"+new Date().toISOString().slice(0,10)+".json",data=JSON.stringify({cats,items});
  try{const f=new File([data],n,{type:"application/json"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"Move inventory backup"});return}}catch(e){if(e.name=="AbortError")return}
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/octet-stream"}));a.download=n;a.click()};
 $("#res").onclick=()=>$("#rf").click();
 $("#rf").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse((await f.text()).replace(/^\ufeff/,"")),its=d.items||[];if(!its.length)throw 0;if(!confirm("Add "+its.length+" items from this backup?")){e.target.value="";return}cats=[...new Set([...cats,...(d.cats||[]),...its.map(i=>i.cat)])];saveCats();for(const i of its)await run("readwrite",t=>t.put(i));await load();$("#menu").classList.remove("open")}catch(x){alert("Couldn't read \""+f.name+"\". It needs to be a file made by the Backup button (not the PDF or Excel list).")}e.target.value=""};
-const fnm=()=>"move-inventory"+(filter!="All"?"-"+filter.replace(/\W+/g,"-"):"");
+const ticked=()=>[...document.querySelectorAll("#xc input:checked")].map(i=>i.value);
+const exp=()=>{const on=ticked();return items.filter(i=>on.includes(i.cat)).sort((a,b)=>cats.indexOf(a.cat)-cats.indexOf(b.cat))};
+const xt=()=>{const on=ticked();return on.length==cats.length?"":on.length==1?on[0]:"selected categories"};
+const fnm=()=>"move-inventory"+(xt()?"-"+xt().replace(/\W+/g,"-"):"");
+$("#xall").onclick=()=>{const b=[...document.querySelectorAll("#xc input")],all=b.every(x=>x.checked);b.forEach(x=>x.checked=!all)};
 function give(blob,name){const f=new File([blob],name,{type:blob.type});
  if(matchMedia("(pointer:coarse)").matches&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:name}).catch(()=>{});return}
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click()}
-$("#csv").onclick=()=>{const v=view().sort((a,b)=>cats.indexOf(a.cat)-cats.indexOf(b.cat));if(!v.length){alert("Nothing to export");return}
+$("#csv").onclick=()=>{const v=exp();if(!v.length){alert("Nothing to export");return}
  const q=t=>'"'+String(t||"").replace(/"/g,'""')+'"';
  const rows=[["Category","Item","Dimensions","Weight / effort","Where now","Where it goes","Notes"],...v.map(i=>[i.cat,i.name,i.dim,i.wt,i.from,i.to,i.notes])];
  give(new Blob(["\ufeff"+rows.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"}),fnm()+".csv");$("#menu").classList.remove("open")};
 $("#pdf").onclick=()=>{
- const v=view().sort((a,b)=>cats.indexOf(a.cat)-cats.indexOf(b.cat));if(!v.length){alert("Nothing to export");return}
+ const v=exp();if(!v.length){alert("Nothing to export");return}
  const d=new jspdf.jsPDF({unit:"mm",format:"a4"});let y=18,last=null;
- d.setFontSize(16);d.setFont(undefined,"bold");d.text("Move inventory"+(filter!="All"?" - "+filter:""),10,y);
+ d.setFontSize(16);d.setFont(undefined,"bold");d.text("Move inventory"+(xt()?" - "+xt():""),10,y);
  d.setFontSize(9);d.setFont(undefined,"normal");d.text(new Date().toLocaleDateString("en-GB")+"  |  "+v.length+" items",10,y+6);y+=14;
  for(const i of v){
   if(y>262){d.addPage();y=14;last=null}
