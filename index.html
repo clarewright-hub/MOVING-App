@@ -1,0 +1,153 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="manifest.json"><title>Move Inventory</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2430;padding-bottom:90px}
+header{background:#1f3a5f;color:#fff;padding:12px 14px;position:sticky;top:0;z-index:5}
+.top{display:flex;align-items:center;gap:8px}h1{font-size:19px;margin:0;flex:1}
+button,select,input,textarea{font:inherit}
+.ic{background:none;border:0;color:#fff;font-size:24px;padding:4px 8px}
+#q{width:100%;margin-top:10px;padding:10px 12px;border-radius:10px;border:0}
+#chips{display:flex;gap:8px;overflow-x:auto;padding:10px 14px;background:#fff;border-bottom:1px solid #dde3ea;position:sticky;top:100px;z-index:4}
+.chip{white-space:nowrap;border:1px solid #c5cfdb;background:#fff;border-radius:20px;padding:6px 12px;font-size:14px}
+.chip.on{background:#1f3a5f;color:#fff;border-color:#1f3a5f}
+#list{padding:12px;display:grid;gap:10px;max-width:900px;margin:auto;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.card{background:#fff;border-radius:14px;padding:10px;display:flex;gap:12px;box-shadow:0 1px 3px #0002}
+.th{width:76px;height:76px;border-radius:10px;background:#e6ebf1 center/cover;flex:none;display:grid;place-items:center;color:#8a97a8;font-size:26px}
+.b{flex:1;min-width:0}.n{font-weight:600}.m{font-size:13px;color:#566376;margin-top:2px}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;background:#e3ecf8;color:#1f3a5f;margin:4px 4px 0 0}
+.w-Heavy,.w-Very{background:#fde4e1;color:#9b2c20}.w-Bulky{background:#fff0d6;color:#8a5a00}.w-Easy{background:#dff3e4;color:#1f6b36}
+.mv{font-size:13px;margin-top:4px}
+#fab{position:fixed;right:18px;bottom:18px;width:60px;height:60px;border-radius:50%;border:0;background:#e8792b;color:#fff;font-size:32px;box-shadow:0 3px 8px #0004}
+.sheet{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;justify-content:center;z-index:10}
+.sheet.open{display:flex}.pane{background:#fff;width:100%;max-width:560px;max-height:94vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px}
+label{display:block;font-size:13px;color:#566376;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:11px;border:1px solid #c5cfdb;border-radius:10px;background:#fff}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.btn{padding:12px;border-radius:10px;border:0;background:#1f3a5f;color:#fff;width:100%;margin-top:8px}
+.btn.g{background:#e6ebf1;color:#1b2430}.btn.r{background:#fde4e1;color:#9b2c20}
+#ph{width:100%;height:170px;border-radius:12px;background:#e6ebf1 center/cover;display:grid;place-items:center;color:#8a97a8}
+.empty{text-align:center;color:#8a97a8;padding:40px 20px;grid-column:1/-1}
+</style></head><body>
+<header><div class="top"><h1>📦 Move Inventory</h1><button class="ic" id="menuBtn">⋮</button></div>
+<input id="q" placeholder="Search items…"></header>
+<div id="chips"></div><div id="list"></div>
+<button id="fab">+</button>
+
+<div class="sheet" id="form"><div class="pane">
+<h2 id="ft" style="margin:0 0 8px">Add item</h2>
+<div id="ph">No photo yet</div>
+<div class="row" style="margin-top:8px"><button class="btn g" id="cam">📷 Take photo</button><button class="btn g" id="gal">🖼 Choose</button></div>
+<input type="file" id="f1" accept="image/*" capture="environment" hidden><input type="file" id="f2" accept="image/*" hidden>
+<label>Name</label><input id="name" placeholder="e.g. Large cutting table">
+<label>Category</label><select id="cat"></select>
+<label>Dimensions (optional)</label><input id="dim" placeholder="e.g. 120 x 60 x 75 cm">
+<label>Where is it now?</label><input id="from" list="locs" placeholder="e.g. Unit 4, back wall">
+<label>Where does it go?</label><input id="to" list="locs" placeholder="e.g. New unit, Printing area">
+<datalist id="locs"></datalist>
+<label>Weight / effort</label><select id="wt"></select>
+<label>Notes (optional)</label><textarea id="notes" rows="2"></textarea>
+<button class="btn" id="save">Save</button><button class="btn r" id="del" style="display:none">Delete item</button><button class="btn g" id="cancel">Cancel</button>
+</div></div>
+
+<div class="sheet" id="menu"><div class="pane">
+<h2 style="margin:0">Menu</h2>
+<button class="btn" id="pdf">⬇ Download PDF (current view)</button>
+<button class="btn g" id="bak">💾 Backup to file (to open on PC)</button>
+<button class="btn g" id="res">📂 Restore from backup file</button>
+<input type="file" id="rf" accept=".json" hidden>
+<button class="btn g" id="close">Close</button>
+</div></div>
+
+<div class="sheet" id="crop"><div class="pane" style="background:#111;padding:10px;text-align:center">
+<canvas id="cv" style="max-width:100%;max-height:62vh;touch-action:none;display:block;margin:auto"></canvas>
+<p style="color:#cbd5e1;font-size:13px;margin:8px 0 0">Drag the corners to crop, or drag inside to move</p>
+<div class="row"><button class="btn g" id="cfull">Use full photo</button><button class="btn" id="cok">Crop</button></div>
+<button class="btn g" id="cx">Cancel</button></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const WT=["Easy move","1 person","2 person","Bulky","Heavy","Very heavy"];
+const DEF=["Mainstay Hub","TTS Office","Embroidery","Heatpress","Printing","Stuff","Display","Stock","PREM M Stock"];
+let cats=DEF,items=[],filter="All",edit=null,photo="",pw=0,ph=0;
+try{cats=JSON.parse(localStorage.getItem("cats"))||DEF}catch(e){}
+const saveCats=()=>{try{localStorage.setItem("cats",JSON.stringify(cats))}catch(e){}};
+const dbp=new Promise((ok,no)=>{const r=indexedDB.open("moveinv",1);r.onupgradeneeded=()=>r.result.createObjectStore("items",{keyPath:"id"});r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const run=async(mode,fn)=>{const d=await dbp;return new Promise((ok,no)=>{const t=d.transaction("items",mode);const r=fn(t.objectStore("items"));t.oncomplete=()=>ok(r.result);t.onerror=()=>no(t.error)})};
+const load=async()=>{items=((await run("readonly",s=>s.getAll()))||[]).sort((a,b)=>b.id-a.id);render()};
+const view=()=>{const q=$("#q").value.toLowerCase();return items.filter(i=>(filter=="All"||i.cat==filter)&&(!q||(i.name+i.from+i.to+i.notes).toLowerCase().includes(q)))};
+function render(){
+ const all=["All",...cats];
+ $("#chips").innerHTML=all.map(c=>`<button class="chip ${c==filter?"on":""}" data-c="${esc(c)}">${esc(c)} (${c=="All"?items.length:items.filter(i=>i.cat==c).length})</button>`).join("");
+ const v=view();
+ $("#list").innerHTML=v.length?v.map(i=>`<div class="card" data-id="${i.id}"><div class="th" style="${i.photo?`background-image:url(${i.photo})`:""}">${i.photo?"":"📦"}</div><div class="b"><div class="n">${esc(i.name)}</div><span class="tag">${esc(i.cat)}</span><span class="tag w-${i.wt.split(" ")[0]}">${esc(i.wt)}</span>${i.dim?`<div class="m">📐 ${esc(i.dim)}</div>`:""}<div class="mv">${esc(i.from||"?")} → <b>${esc(i.to||"?")}</b></div></div></div>`).join(""):`<div class="empty">No items yet.<br>Tap + to add your first one.</div>`;
+ $("#locs").innerHTML=[...new Set(items.flatMap(i=>[i.from,i.to]).filter(Boolean))].map(l=>`<option value="${esc(l)}">`).join("");
+}
+$("#chips").onclick=e=>{const c=e.target.dataset.c;if(c){filter=c;render()}};
+$("#q").oninput=render;
+function fillSel(sel){$("#cat").innerHTML=cats.map(c=>`<option>${esc(c)}</option>`).join("")+`<option value="__new">➕ New category…</option>`;if(sel)$("#cat").value=sel}
+$("#cat").onchange=e=>{if(e.target.value=="__new"){const n=(prompt("New category name")||"").trim();if(n){if(!cats.includes(n)){cats.push(n);saveCats()}fillSel(n)}else fillSel(cats[0])}};
+$("#wt").innerHTML=WT.map(w=>`<option>${w}</option>`).join("");
+function open_(it){
+ edit=it||null;photo=it?it.photo:"";pw=it?it.pw:0;ph=it?it.ph:0;
+ $("#ft").textContent=it?"Edit item":"Add item";fillSel(it?it.cat:(filter!="All"?filter:cats[0]));
+ $("#name").value=it?it.name:"";$("#dim").value=it?it.dim:"";$("#from").value=it?it.from:"";$("#to").value=it?it.to:"";$("#wt").value=it?it.wt:WT[1];$("#notes").value=it?it.notes:"";
+ setPh();$("#del").style.display=it?"block":"none";$("#form").classList.add("open");
+}
+const setPh=()=>{$("#ph").style.backgroundImage=photo?`url(${photo})`:"";$("#ph").textContent=photo?"":"No photo yet"};
+$("#fab").onclick=()=>open_();
+$("#list").onclick=e=>{const c=e.target.closest(".card");if(c)open_(items.find(i=>i.id==c.dataset.id))};
+$("#cancel").onclick=()=>$("#form").classList.remove("open");
+$("#cam").onclick=()=>$("#f1").click();$("#gal").onclick=()=>$("#f2").click();
+let CI,CR,drag,cv=$("#cv");
+const hs=()=>Math.max(10,cv.width/45),corners=()=>[[CR.x,CR.y],[CR.x+CR.w,CR.y],[CR.x,CR.y+CR.h],[CR.x+CR.w,CR.y+CR.h]];
+function startCrop(f){const im=new Image();im.onload=()=>{CI=im;const k=Math.min(1,1000/Math.max(im.width,im.height));cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);const m=Math.min(cv.width,cv.height)*.06;CR={x:m,y:m,w:cv.width-2*m,h:cv.height-2*m};$("#crop").classList.add("open");drawCrop()};im.src=URL.createObjectURL(f)}
+function drawCrop(){const x=cv.getContext("2d"),r=CR;x.drawImage(CI,0,0,cv.width,cv.height);x.fillStyle="#0009";x.fillRect(0,0,cv.width,r.y);x.fillRect(0,r.y+r.h,cv.width,cv.height);x.fillRect(0,r.y,r.x,r.h);x.fillRect(r.x+r.w,r.y,cv.width,r.h);x.strokeStyle="#fff";x.lineWidth=Math.max(2,cv.width/300);x.strokeRect(r.x,r.y,r.w,r.h);x.fillStyle="#fff";const s=hs();for(const[a,b]of corners())x.fillRect(a-s,b-s,2*s,2*s)}
+const pt=e=>{const b=cv.getBoundingClientRect();return[(e.clientX-b.left)*cv.width/b.width,(e.clientY-b.top)*cv.height/b.height]};
+cv.onpointerdown=e=>{const[px,py]=pt(e),s=hs()*2.5;cv.setPointerCapture(e.pointerId);const i=corners().findIndex(([a,b])=>Math.abs(px-a)<s&&Math.abs(py-b)<s);
+ if(i>=0)drag={m:"c",i};else if(px>CR.x&&px<CR.x+CR.w&&py>CR.y&&py<CR.y+CR.h)drag={m:"m",dx:px-CR.x,dy:py-CR.y};else drag=null};
+cv.onpointermove=e=>{if(!drag)return;const[px,py]=pt(e),W=cv.width,H=cv.height,mn=30,r=CR;
+ if(drag.m=="m"){r.x=Math.max(0,Math.min(W-r.w,px-drag.dx));r.y=Math.max(0,Math.min(H-r.h,py-drag.dy))}
+ else{let x1=r.x,y1=r.y,x2=r.x+r.w,y2=r.y+r.h;const i=drag.i;
+  if(i%2==0)x1=Math.max(0,Math.min(px,x2-mn));else x2=Math.min(W,Math.max(px,x1+mn));
+  if(i<2)y1=Math.max(0,Math.min(py,y2-mn));else y2=Math.min(H,Math.max(py,y1+mn));
+  CR={x:x1,y:y1,w:x2-x1,h:y2-y1}}
+ drawCrop()};
+cv.onpointerup=cv.onpointercancel=()=>{drag=null};
+function endCrop(full){const f=CI.width/cv.width,r=full?{x:0,y:0,w:cv.width,h:cv.height}:CR,sw=r.w*f,sh=r.h*f,k=Math.min(1,800/Math.max(sw,sh)),c=document.createElement("canvas");
+ c.width=Math.round(sw*k);c.height=Math.round(sh*k);c.getContext("2d").drawImage(CI,r.x*f,r.y*f,sw,sh,0,0,c.width,c.height);
+ photo=c.toDataURL("image/jpeg",.6);pw=c.width;ph=c.height;setPh();closeCrop()}
+function closeCrop(){URL.revokeObjectURL(CI.src);$("#crop").classList.remove("open")}
+$("#cok").onclick=()=>endCrop(false);$("#cfull").onclick=()=>endCrop(true);$("#cx").onclick=closeCrop;
+for(const id of["#f1","#f2"])$(id).onchange=e=>{const f=e.target.files[0];if(f)startCrop(f);e.target.value=""};
+$("#save").onclick=async()=>{
+ const name=$("#name").value.trim();if(!name){alert("Give it a name first");return}
+ const it={id:edit?edit.id:Date.now(),name,cat:$("#cat").value,dim:$("#dim").value.trim(),from:$("#from").value.trim(),to:$("#to").value.trim(),wt:$("#wt").value,notes:$("#notes").value.trim(),photo,pw,ph};
+ await run("readwrite",s=>s.put(it));$("#form").classList.remove("open");load();
+};
+$("#del").onclick=async()=>{if(confirm("Delete this item?")){await run("readwrite",s=>s.delete(edit.id));$("#form").classList.remove("open");load()}};
+$("#menuBtn").onclick=()=>$("#menu").classList.add("open");$("#close").onclick=()=>$("#menu").classList.remove("open");
+$("#bak").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify({cats,items})],{type:"application/json"}));a.download="move-inventory-backup.json";a.click()};
+$("#res").onclick=()=>$("#rf").click();
+$("#rf").onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!confirm("Add "+d.items.length+" items from this backup?"))return;cats=[...new Set([...cats,...d.cats])];saveCats();for(const i of d.items)await run("readwrite",s=>s.put(i));load();$("#menu").classList.remove("open")}catch(x){alert("That file didn't look like a backup.")}e.target.value=""};
+$("#pdf").onclick=()=>{
+ const v=view().sort((a,b)=>cats.indexOf(a.cat)-cats.indexOf(b.cat));if(!v.length){alert("Nothing to export");return}
+ const d=new jspdf.jsPDF({unit:"mm",format:"a4"});let y=18,last=null;
+ d.setFontSize(16);d.setFont(undefined,"bold");d.text("Move inventory"+(filter!="All"?" - "+filter:""),10,y);
+ d.setFontSize(9);d.setFont(undefined,"normal");d.text(new Date().toLocaleDateString("en-GB")+"  |  "+v.length+" items",10,y+6);y+=14;
+ for(const i of v){
+  if(y>262){d.addPage();y=14;last=null}
+  if(i.cat!==last){d.setFillColor(31,58,95);d.rect(10,y,190,7,"F");d.setTextColor(255);d.setFontSize(10);d.setFont(undefined,"bold");d.text(i.cat,12,y+5);d.setTextColor(0);y+=10;last=i.cat}
+  if(y>262){d.addPage();y=14}
+  if(i.photo){const k=Math.min(24/i.pw,24/i.ph);try{d.addImage(i.photo,"JPEG",10,y,i.pw*k,i.ph*k)}catch(e){}}
+  d.setFontSize(11);d.setFont(undefined,"bold");d.text(i.name,38,y+4);
+  d.setFontSize(9);d.setFont(undefined,"normal");
+  let t=["Weight: "+i.wt+(i.dim?"   Size: "+i.dim:""),"From: "+(i.from||"?")+"  ->  To: "+(i.to||"?")];if(i.notes)t.push("Notes: "+i.notes);
+  d.text(d.splitTextToSize(t.join("\n"),150),38,y+10);
+  d.rect(193,y+1,5,5);d.setDrawColor(200);d.line(10,y+26,200,y+26);d.setDrawColor(0);y+=29;
+ }
+ d.save("move-inventory"+(filter!="All"?"-"+filter.replace(/\W+/g,"-"):"")+".pdf");$("#menu").classList.remove("open");
+};
+if("serviceWorker"in navigator&&location.protocol=="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+load();
+</script></body></html>
